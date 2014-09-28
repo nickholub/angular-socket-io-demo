@@ -50,6 +50,23 @@
     <!-- inject:partials -->
     <!-- endinject -->
     <!-- endbuild -->
+    <script src="http://localhost:3005/socket.io/socket.io.js"></script>
+    <script>
+        var socket = io.connect('http://localhost:3005');
 
+        socket.on('connect', function() {
+            var r = Math.round(Math.random() * 10);
+            socket.emit('query', { query: r });
+        });
+
+        socket.on('result', function (data) {
+            console.log('result', data);
+        });
+
+        socket.on('news', function (data) {
+            console.log(data);
+            socket.emit('my other event', { my: 'data' });
+        });
+    </script>
   </body>
 </html>
