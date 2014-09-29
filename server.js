@@ -26,14 +26,16 @@ function generateQueryResults() {
     var result = query + '->' + r;
 
     // notify all sockets subscribed to the query
-    io.to(query).emit('result', result);
+    io.to(query).emit(query, result);
   });
 }
 
 setInterval(generateQueryResults, 500);
 
 io.on('connection', function (socket) {
+  socket.emit('news', 'server data');
   socket.on('subscribe', function (data) {
+    console.log('_sub ' + data.query);
     var query = data.query;
     socket.join(query); // join room with specified query
     queries.addQuery(socket.id, query);
