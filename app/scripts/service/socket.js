@@ -18,7 +18,6 @@ angular.module('socket', [])
         var deferred = $q.defer();
 
         socket.on('connect', function () {
-          console.log('_connected');
           deferred.resolve();
           $rootScope.$apply(); //TODO
         });
