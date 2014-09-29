@@ -1,8 +1,11 @@
 var _ = require('lodash');
 var path = require('path');
+var http = require('http');
 var express = require('express');
+var Queries = require('./queries');
+
 var app = express();
-var server = require('http').Server(app);
+var server = http.Server(app);
 var io = require('socket.io')(server);
 
 server.listen(3005);
@@ -10,50 +13,47 @@ server.listen(3005);
 app.use(express.static(path.join(__dirname, 'app')));
 app.use(express.static(path.join(__dirname, '.tmp'))); //TODO
 
-var query2client = {};
+var queries = new Queries();
 
-function notifyClients(query, result) {
-  console.log('notify', query,  result);
-  var clients = query2client[query];
-  if (clients) {
-    clients.forEach(function (socket) {
-      socket.emit('result', result);
-    });
-  }
-}
+function generateQueryResults() {
+  var activeQueries = queries.getQueryList();
+  console.log(io.sockets.adapter.rooms);
+  console.log(activeQueries);
+  console.log('_');
 
-function sendResult() {
-  var queries = _.keys(query2client);
-  queries.forEach(function (query) {
+  activeQueries.forEach(function (query) {
     var r = (query * 1000) + Math.floor(Math.random() * 100);
     var result = query + '->' + r;
-    notifyClients(query, result);
+
+    // notify all sockets subscribed to the query
+    io.to(query).emit('result', result);
   });
 }
 
-setInterval(sendResult, 500);
+setInterval(generateQueryResults, 500);
 
 io.on('connection', function (socket) {
-  console.log(socket.id);
-  socket.on('query', function (data) {
+  socket.on('subscribe', function (data) {
     var query = data.query;
-    console.log('query', query);
-    var queryClients = query2client[query];
-    if (!queryClients) {
-      queryClients = [];
-      query2client[query] = queryClients;
-    }
-    if (!_.contains(queryClients, socket)) {
-      queryClients.push(socket);
-    }
-    console.log(query2client);
+    socket.join(query); // join room with specified query
+    queries.addQuery(socket.id, query);
   });
-  socket.emit('news', { hello: 'world' });
-  socket.on('my other event', function (data) {
-    console.log(data);
+
+  socket.on('unsubscribe', function (data) {
+    var query = data.query;
+    socket.leave(query);
+    queries.removeQuery(socket.id, query);
+    //TODO clean up rooms
+    /*
+    var room = io.sockets.adapter.rooms[query];
+    if (room && _.isEmpty(room)) {
+      delete queries[query];
+    }
+    */
   });
+
   socket.on('disconnect', function () {
-    //TODO free resources
     console.log(socket.id + ' disconnected ' + socket.connected);
+    queries.removeId(socket.id);
   });
 });
